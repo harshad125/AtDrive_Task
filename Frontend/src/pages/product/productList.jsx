@@ -57,9 +57,9 @@ export default function ProductList() {
     const getProducts = async () => {
         try {
             setIsLoading(true);
-            const response = await ApiService.getProductsAsync();
+            const { data } = await ApiService.getProductsAsync();
             // Handle both { data: [...] } and [...] formats
-            const productData = response?.data || response;
+            const productData = data?.data || data;
             if (Array.isArray(productData)) {
                 setProducts(productData);
             }

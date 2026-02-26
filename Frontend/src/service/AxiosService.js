@@ -32,7 +32,7 @@ axios.interceptors.request.use(
 
 axios.interceptors.response.use(
   async (response) => {
-    return { data: response?.data, error: null };
+    return { data: response?.data.data, error: null };
   },
   async (error) => {
     const originalRequest = error.config;
