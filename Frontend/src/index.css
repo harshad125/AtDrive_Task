@@ -1,0 +1,79 @@
+/* Tailwind is not installed, removing invalid import */
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Xtract UI Theme Variables */
+  --primary: #7c3aed;
+  --secondary: #0ea5e9;
+  --background: #020617;
+  --paper: #0f172a;
+  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --neon-purple: #8b5cf6;
+  --neon-cyan: #06b6d4;
+  --mesh-gradient:
+    radial-gradient(at 0% 0%, hsla(263, 100%, 70%, 0.15) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(222, 100%, 70%, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(293, 100%, 70%, 0.15) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, hsla(263, 100%, 70%, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, hsla(222, 100%, 70%, 0.1) 0px, transparent 50%);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--background);
+  color: #fff;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: inherit;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--neon-purple);
+}
+
+/* Base Headings */
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+/* Global Transitions */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Remove interfering generic button styles */
+button {
+  font-family: inherit;
+}
+
+/* Clear focus outlines for cleaner UI, use MUI's focus states instead */
+button:focus,
+button:focus-visible {
+  outline: none;
+}
+
+/* Custom Selection Color */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: #fff;
+}
