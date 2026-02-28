@@ -27,7 +27,7 @@ import { Form, FormikProvider, useFormik } from 'formik';
 import * as Yup from 'yup';
 
 // project import
-import ApiService from '../../service/ApiService';
+import { useCreateProduct, useUpdateProduct } from '../../hooks/useProducts';
 
 // assets
 import { CloseOutlined } from '@ant-design/icons';
@@ -39,15 +39,18 @@ const Transition = forwardRef(function Transition(props, ref) {
 
 // ==============================|| PRODUCT - ADD / EDIT ||============================== //
 
+const ProductSchema = Yup.object().shape({
+    name: Yup.string().max(255).required('Product Name is required'),
+    category: Yup.string().required('Category is required'),
+    price: Yup.number().positive('Price must be positive').required('Price is required'),
+    stock: Yup.number().integer().min(0).required('Stock quantity is required'),
+    description: Yup.string().max(500)
+});
+
 export default function AddEditProduct({ onCancel, selectedProduct, onProductSave }) {
     const theme = useTheme();
-    const ProductSchema = Yup.object().shape({
-        name: Yup.string().max(255).required('Product Name is required'),
-        category: Yup.string().required('Category is required'),
-        price: Yup.number().positive('Price must be positive').required('Price is required'),
-        stock: Yup.number().integer().min(0).required('Stock quantity is required'),
-        description: Yup.string().max(500)
-    });
+    const createProductMutation = useCreateProduct();
+    const updateProductMutation = useUpdateProduct();
 
     const formik = useFormik({
         initialValues: {
@@ -60,30 +63,28 @@ export default function AddEditProduct({ onCancel, selectedProduct, onProductSav
         enableReinitialize: true,
         validationSchema: ProductSchema,
         onSubmit: async (values, { setSubmitting, setErrors }) => {
-            try {
-                setSubmitting(true);
-                const productId = selectedProduct?._id || selectedProduct?.id;
-                let response;
+            const productId = selectedProduct?._id || selectedProduct?.id;
 
-                if (productId) {
-                    response = await ApiService.updateProductAsync(productId, values);
-                } else {
-                    response = await ApiService.createProductAsync(values);
-                }
+            const mutation = productId ? updateProductMutation : createProductMutation;
+            const mutationPayload = productId ? { productId, payload: values } : values;
 
-                // The interceptor returns response.data directly or the wrapped object with {data, error}
-                // Check if we have data or if the response itself is the data (success)
-                if (response && !response.error) {
-                    onProductSave();
-                    onCancel();
-                } else if (response?.error) {
-                    setErrors(response.error);
+            mutation.mutate(mutationPayload, {
+                onSuccess: (data) => {
+                    // Check if the interceptor returned an error object
+                    if (data?.error) {
+                        setErrors(data.error);
+                    } else {
+                        onProductSave();
+                        onCancel();
+                    }
+                },
+                onError: (error) => {
+                    console.error('Submission error:', error);
+                },
+                onSettled: () => {
+                    setSubmitting(false);
                 }
-            } catch (err) {
-                console.error('Submission error:', err);
-            } finally {
-                setSubmitting(false);
-            }
+            });
         }
     });
 

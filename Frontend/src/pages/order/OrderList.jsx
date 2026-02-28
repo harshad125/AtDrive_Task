@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
     Box,
     CircularProgress,
@@ -34,71 +34,54 @@ import {
     ClockCircleOutlined,
     CloseCircleOutlined
 } from '@ant-design/icons';
-import ApiService from '../../service/ApiService';
+import { useGetOrders, useUpdateOrder, useDeleteOrder } from '../../hooks/useOrders';
 import ConfirmationDialog from '../../component/ConfirmationDialog';
 import { toast } from 'sonner';
 import './orderList.css';
 
 export default function OrderList() {
     const theme = useTheme();
-    const [orders, setOrders] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [editStatus, setEditStatus] = useState('');
 
-    useEffect(() => {
-        getOrders();
-    }, []);
-
-    const getOrders = async () => {
-        try {
-            setIsLoading(true);
-            const response = await ApiService.getOrdersAsync();
-            const orderData = response?.data || response;
-            if (Array.isArray(orderData)) {
-                setOrders(orderData);
-            }
-        } catch (err) {
-            console.error('Failed to fetch orders:', err);
-            toast.error('Failed to fetch orders');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const { data: orders = [], isLoading } = useGetOrders();
+    const updateOrderMutation = useUpdateOrder();
+    const deleteOrderMutation = useDeleteOrder();
 
     const handleDeleteOrder = async () => {
-        try {
-            setIsLoading(true);
-            const response = await ApiService.deleteOrderAsync(selectedOrder._id || selectedOrder.id);
-            toast.success('Order deleted successfully');
-            setOrders(orders.filter(o => (o._id || o.id) !== (selectedOrder._id || selectedOrder.id)));
-            setIsConfirmOpen(false);
-            setSelectedOrder(null);
-        } catch (err) {
-            console.error('Failed to delete order:', err);
-            toast.error('Failed to delete order');
-        } finally {
-            setIsLoading(false);
+        const orderId = selectedOrder._id || selectedOrder.id;
+        if (orderId) {
+            deleteOrderMutation.mutate(orderId, {
+                onSuccess: () => {
+                    toast.success('Order deleted successfully');
+                    setIsConfirmOpen(false);
+                    setSelectedOrder(null);
+                },
+                onError: (err) => {
+                    console.error('Failed to delete order:', err);
+                    toast.error('Failed to delete order');
+                }
+            });
         }
     };
 
     const handleUpdateStatus = async () => {
-        try {
-            setIsLoading(true);
-            const orderId = selectedOrder._id || selectedOrder.id;
-            await ApiService.updateOrderAsync(orderId, { status: editStatus });
-            toast.success('Order status updated');
-            setOrders(orders.map(o => (o._id || o.id) === orderId ? { ...o, status: editStatus } : o));
-            setIsEditOpen(false);
-            setSelectedOrder(null);
-        } catch (err) {
-            console.error('Failed to update order status:', err);
-            toast.error('Failed to update order status');
-        } finally {
-            setIsLoading(false);
+        const orderId = selectedOrder._id || selectedOrder.id;
+        if (orderId) {
+            updateOrderMutation.mutate({ orderId, payload: { status: editStatus } }, {
+                onSuccess: () => {
+                    toast.success('Order status updated');
+                    setIsEditOpen(false);
+                    setSelectedOrder(null);
+                },
+                onError: (err) => {
+                    console.error('Failed to update order status:', err);
+                    toast.error('Failed to update order status');
+                }
+            });
         }
     };
 
@@ -290,9 +273,9 @@ export default function OrderList() {
                     <Button
                         onClick={handleUpdateStatus}
                         className="modal-submit-btn"
-                        disabled={isLoading}
+                        disabled={updateOrderMutation.isPending}
                     >
-                        {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Update Status'}
+                        {updateOrderMutation.isPending ? <CircularProgress size={24} color="inherit" /> : 'Update Status'}
                     </Button>
                 </DialogActions>
             </Dialog>

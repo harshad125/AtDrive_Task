@@ -26,6 +26,7 @@ import {
     FilterDramaOutlined
 } from '@mui/icons-material';
 import WeatherService from '../../service/weatherService';
+import { useGetWeather } from '../../hooks/useWeather';
 import { toast } from 'sonner';
 import './weather.css';
 
@@ -36,12 +37,11 @@ import './weather.css';
 export default function WeatherDashboard() {
     const theme = useTheme();
     const [city, setCity] = useState('');
-    const [weatherData, setWeatherData] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [searchCity, setSearchCity] = useState('');
 
-    // Requirement: Prevent empty input submission
-    const handleSearch = async (e) => {
+    const { data: weatherData, isLoading, error, isError } = useGetWeather(searchCity);
+
+    const handleSearch = (e) => {
         if (e) e.preventDefault();
 
         if (!city.trim()) {
@@ -49,29 +49,8 @@ export default function WeatherDashboard() {
             return;
         }
 
-        fetchWeather(city);
-    };
-
-    /**
-     * Core logic for fetching and handling state.
-     * Requirement: async/await with proper error handling.
-     */
-    const fetchWeather = async (cityName) => {
-        try {
-            setError(null);
-            setIsLoading(true);
-
-            const data = await WeatherService.fetchCurrentWeather(cityName);
-            setWeatherData(data);
-            setCity('');
-        } catch (err) {
-            console.error('Weather Fetch Error:', err);
-            setError(err.message || 'Something went wrong');
-            toast.error(err.message || 'Failed to fetch weather');
-            setWeatherData(null);
-        } finally {
-            setIsLoading(false);
-        }
+        setSearchCity(city);
+        setCity('');
     };
 
     const getWeatherIcon = (code) => {
@@ -136,10 +115,10 @@ export default function WeatherDashboard() {
                 </div>
 
                 {/* Error Display */}
-                {error && (
+                {isError && (
                     <div className="weather-error-box animate-fade-in">
                         <Typography variant="body1" fontWeight={600}>
-                            Error: {error}
+                            Error: {error?.message || 'Something went wrong'}
                         </Typography>
                     </div>
                 )}
@@ -189,7 +168,7 @@ export default function WeatherDashboard() {
                 )}
 
                 {/* Initial State / No Data */}
-                {!weatherData && !isLoading && !error && (
+                {!weatherData && !isLoading && !isError && (
                     <Box sx={{ textAlign: 'center', mt: 4, opacity: 0.5 }}>
                         <CloudOutlined style={{ fontSize: '64px', marginBottom: '1rem' }} />
                         <Typography variant="h5">Start by searching a city</Typography>

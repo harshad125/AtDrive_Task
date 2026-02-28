@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import AuthLayout from '../../layout/AuthLayout.jsx';
-import ApiService from '../../service/ApiService.js';
+import { useLogin } from '../../hooks/useAuth.js';
 import { dispatch } from '../../store/index.js';
 import { login } from '../../store/reducers/authReducer.js';
 
@@ -34,6 +34,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
+  const loginMutation = useLogin();
 
   // ------------------ FORMIK SETUP ----------------------
   const formik = useFormik({
@@ -43,17 +44,24 @@ export default function Login() {
     },
     validationSchema,
     onSubmit: async (values, { setErrors }) => {
-      const { data, error } = await ApiService.authLoginAsync(values);
-      if (data) {
-        const token = {
-          sessionToken: data.sessionToken,
-          refreshToken: data.refreshToken,
-        };
-        const currentTokenUser = jwtDecode(token.sessionToken);
-        dispatch(login({ user: currentTokenUser, token }));
-      } else if (error) {
-        setErrors(error);
-      }
+      loginMutation.mutate(values, {
+        onSuccess: (response) => {
+          const { data, error } = response;
+          if (data) {
+            const token = {
+              sessionToken: data.sessionToken,
+              refreshToken: data.refreshToken,
+            };
+            const currentTokenUser = jwtDecode(token.sessionToken);
+            dispatch(login({ user: currentTokenUser, token }));
+          } else if (error) {
+            setErrors(error);
+          }
+        },
+        onError: (err) => {
+          console.error('Login error:', err);
+        }
+      });
     },
   });
 
@@ -178,7 +186,7 @@ export default function Login() {
             variant='contained'
             size='large'
             type="submit"
-            disabled={formik.isSubmitting}
+            disabled={loginMutation.isPending}
             sx={{
               py: 2,
               fontSize: '1rem',
@@ -194,7 +202,7 @@ export default function Login() {
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
           >
-            {formik.isSubmitting ? 'Authenticating...' : 'Sign In Now'}
+            {loginMutation.isPending ? 'Authenticating...' : 'Sign In Now'}
           </Button>
         </Box>
 

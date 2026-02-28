@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 
 // material-ui
 import {
@@ -16,7 +16,7 @@ import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ShoppingCar
 
 // project import
 import AddEditProduct from './AddEditProduct';
-import ApiService from '../../service/ApiService';
+import { useGetProducts, useDeleteProduct } from '../../hooks/useProducts';
 import ConfirmationDialog from '../../component/ConfirmationDialog';
 import { useDispatch } from '../../store';
 import { addToCart } from '../../store/reducers/cartReducer';
@@ -31,15 +31,12 @@ export default function ProductList() {
     const theme = useTheme();
     const dispatch = useDispatch();
     const [isOpen, setIsOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
-    const [products, setProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        getProducts();
-    }, []);
+    const { data: products = [], isLoading } = useGetProducts();
+    const deleteProductMutation = useDeleteProduct();
 
     const handleAddToCart = (product) => {
         dispatch(addToCart(product));
@@ -54,37 +51,15 @@ export default function ProductList() {
         });
     };
 
-    const getProducts = async () => {
-        try {
-            setIsLoading(true);
-            const { data } = await ApiService.getProductsAsync();
-            // Handle both { data: [...] } and [...] formats
-            const productData = data?.data || data;
-            if (Array.isArray(productData)) {
-                setProducts(productData);
-            }
-        } catch (err) {
-            console.error('Failed to fetch products:', err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const onDeleteProduct = async () => {
-        try {
-            setIsLoading(true);
-            const productId = selectedProduct?._id || selectedProduct?.id;
-            if (productId) {
-                const response = await ApiService.deleteProductAsync(productId);
-                // Assume success if no error is thrown or if response indicates success
-                setProducts(products.filter((p) => (p._id || p.id) !== productId));
-                setIsConfirmOpen(false);
-                setSelectedProduct(null);
-            }
-        } catch (err) {
-            console.error('Failed to delete product:', err);
-        } finally {
-            setIsLoading(false);
+        const productId = selectedProduct?._id || selectedProduct?.id;
+        if (productId) {
+            deleteProductMutation.mutate(productId, {
+                onSuccess: () => {
+                    setIsConfirmOpen(false);
+                    setSelectedProduct(null);
+                }
+            });
         }
     };
 
@@ -92,12 +67,92 @@ export default function ProductList() {
         setSearchTerm(event.target.value);
     };
 
-    const filteredProducts = products.filter((product) => {
-        const name = product.name || '';
-        const category = product.category || '';
-        return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            category.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+    const filteredProducts = useMemo(() => {
+        return products.filter((product) => {
+            const name = product.name || '';
+            const category = product.category || '';
+            return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                category.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+    }, [products, searchTerm]);
+
+    const ProductCard = memo(({ product, index, onAddToCart, onEdit, onDelete }) => (
+        <div className="glass-card">
+            <div className="product-info">
+                <span className="product-category">{product.category}</span>
+                <h3 className="product-name">{product.name}</h3>
+                <Typography
+                    variant="body2"
+                    sx={{
+                        color: 'rgba(255,255,255,0.6)',
+                        mb: 2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                    }}
+                >
+                    {product.description || 'Premium design meets unparalleled performance in this latest collection item.'}
+                </Typography>
+            </div>
+            <div className="product-footer">
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <span className="price-badge">
+                        ${product.price}
+                    </span>
+                    <Tooltip title="Add to Cart">
+                        <IconButton
+                            sx={{
+                                color: theme.palette.primary.main,
+                                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                borderRadius: '10px',
+                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                            }}
+                            onClick={() => onAddToCart(product)}
+                        >
+                            <ShoppingCartOutlined style={{ fontSize: '20px' }} />
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
+                <div className="action-buttons">
+                    <Tooltip title="Edit Product">
+                        <IconButton
+                            className="icon-btn edit"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(product);
+                            }}
+                            sx={{
+                                color: '#fff',
+                                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '10px',
+                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)', color: theme.palette.primary.main }
+                            }}
+                        >
+                            <EditOutlined style={{ fontSize: '18px' }} />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Product">
+                        <IconButton
+                            className="icon-btn delete"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(product);
+                            }}
+                            sx={{
+                                color: '#fff',
+                                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '10px',
+                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)', color: '#ff4d4f' }
+                            }}
+                        >
+                            <DeleteOutlined style={{ fontSize: '18px' }} />
+                        </IconButton>
+                    </Tooltip>
+                </div>
+            </div>
+        </div>
+    ));
 
     return (
         <div className="product-page-wrapper">
@@ -133,83 +188,20 @@ export default function ProductList() {
             ) : filteredProducts.length > 0 ? (
                 <div className="bento-grid">
                     {filteredProducts.map((product, index) => (
-                        <div key={product._id || index} className="glass-card">
-                            <div className="product-info">
-                                <span className="product-category">{product.category}</span>
-                                <h3 className="product-name">{product.name}</h3>
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        color: 'rgba(255,255,255,0.6)',
-                                        mb: 2,
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden'
-                                    }}
-                                >
-                                    {product.description || 'Premium design meets unparalleled performance in this latest collection item.'}
-                                </Typography>
-                            </div>
-                            <div className="product-footer">
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <span className="price-badge">
-                                        ${product.price}
-                                    </span>
-                                    <Tooltip title="Add to Cart">
-                                        <IconButton
-                                            sx={{
-                                                color: theme.palette.primary.main,
-                                                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                                borderRadius: '10px',
-                                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
-                                            }}
-                                            onClick={() => handleAddToCart(product)}
-                                        >
-                                            <ShoppingCartOutlined style={{ fontSize: '20px' }} />
-                                        </IconButton>
-                                    </Tooltip>
-                                </Stack>
-                                <div className="action-buttons">
-                                    <Tooltip title="Edit Product">
-                                        <IconButton
-                                            className="icon-btn edit"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedProduct(product);
-                                                setIsOpen(true);
-                                            }}
-                                            sx={{
-                                                color: '#fff',
-                                                bgcolor: 'rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '10px',
-                                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)', color: theme.palette.primary.main }
-                                            }}
-                                        >
-                                            <EditOutlined style={{ fontSize: '18px' }} />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Delete Product">
-                                        <IconButton
-                                            className="icon-btn delete"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedProduct(product);
-                                                setIsConfirmOpen(true);
-                                            }}
-                                            sx={{
-                                                color: '#fff',
-                                                bgcolor: 'rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '10px',
-                                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)', color: '#ff4d4f' }
-                                            }}
-                                        >
-                                            <DeleteOutlined style={{ fontSize: '18px' }} />
-                                        </IconButton>
-                                    </Tooltip>
-                                </div>
-                            </div>
-                        </div>
+                        <ProductCard
+                            key={product._id || index}
+                            product={product}
+                            index={index}
+                            onAddToCart={handleAddToCart}
+                            onEdit={(p) => {
+                                setSelectedProduct(p);
+                                setIsOpen(true);
+                            }}
+                            onDelete={(p) => {
+                                setSelectedProduct(p);
+                                setIsConfirmOpen(true);
+                            }}
+                        />
                     ))}
                 </div>
             ) : (
@@ -226,7 +218,7 @@ export default function ProductList() {
                     onCancel={() => setIsOpen(false)}
                     selectedProduct={selectedProduct}
                     onProductSave={() => {
-                        getProducts();
+                        // The mutation hooks in AddEditProduct already handle invalidation
                         setIsOpen(false);
                     }}
                 />
