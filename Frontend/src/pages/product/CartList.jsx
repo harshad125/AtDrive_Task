@@ -10,9 +10,8 @@ import {
 } from '@ant-design/icons';
 import { addToCart, removeFromCart, clearCart, deleteItemFromCart } from '../../store/reducers/cartReducer';
 import { useNavigate } from 'react-router-dom';
-import ApiService from '../../service/ApiService';
+import { useCreateOrder } from '../../hooks/useOrders';
 import { toast } from 'sonner';
-import { useState } from 'react';
 import './productList.css'; // Reusing established glassmorphism styles
 
 export default function CartList() {
@@ -20,43 +19,39 @@ export default function CartList() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { items, totalAmount } = useSelector((state) => state.cart);
-    const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const createOrderMutation = useCreateOrder();
 
     const handleCheckout = async () => {
-        try {
-            setIsCheckingOut(true);
-            const orderData = {
-                items: items.map(item => ({
-                    productId: item.id,
-                    productName: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                })),
-                totalAmount: totalAmount
-            };
+        const orderData = {
+            items: items.map(item => ({
+                productId: item.id,
+                productName: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            totalAmount: totalAmount
+        };
 
-            const response = await ApiService.createOrderAsync(orderData);
-
-            // Assume success if no error is thrown by the interceptor
-            toast.success('Order placed successfully!', {
-                description: 'Your premium selection is being processed.',
-                style: {
-                    background: 'rgba(15, 23, 42, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    color: '#fff',
-                    border: `1px solid ${theme.palette.primary.main}`,
-                    borderRadius: '12px'
-                }
-            });
-
-            dispatch(clearCart());
-            navigate('/product');
-        } catch (error) {
-            console.error('Checkout failed:', error);
-            toast.error('Checkout failed. Please try again.');
-        } finally {
-            setIsCheckingOut(false);
-        }
+        createOrderMutation.mutate(orderData, {
+            onSuccess: () => {
+                toast.success('Order placed successfully!', {
+                    description: 'Your premium selection is being processed.',
+                    style: {
+                        background: 'rgba(15, 23, 42, 0.9)',
+                        backdropFilter: 'blur(10px)',
+                        color: '#fff',
+                        border: `1px solid ${theme.palette.primary.main}`,
+                        borderRadius: '12px'
+                    }
+                });
+                dispatch(clearCart());
+                navigate('/product');
+            },
+            onError: (error) => {
+                console.error('Checkout failed:', error);
+                toast.error('Checkout failed. Please try again.');
+            }
+        });
     };
 
 
@@ -197,9 +192,9 @@ export default function CartList() {
                             className="add-btn-compact"
                             style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}
                             onClick={handleCheckout}
-                            disabled={isCheckingOut}
+                            disabled={createOrderMutation.isPending}
                         >
-                            {isCheckingOut ? 'Processing...' : 'Checkout Now'}
+                            {createOrderMutation.isPending ? 'Processing...' : 'Checkout Now'}
                         </button>
                     </Stack>
                 </div>

@@ -20,7 +20,7 @@ import { jwtDecode } from 'jwt-decode';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
-import ApiService from '../../service/ApiService.js';
+import { useRegister } from '../../hooks/useAuth.js';
 import { dispatch } from '../../store/index.js';
 import { login } from '../../store/reducers/authReducer.js';
 import AuthLayout from '../../layout/AuthLayout.jsx';
@@ -41,6 +41,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
+  const registerMutation = useRegister();
 
   // ------------------ FORMIK SETUP ----------------------
   const formik = useFormik({
@@ -51,29 +52,37 @@ export default function Register() {
     },
     validationSchema,
     onSubmit: async (values, { setErrors }) => {
-      const { data, error } = await ApiService.createUserAsync(values);
-      if (data) {
-        toast.success('Registration successful! Welcome to AtDrive Store.');
-        const token = {
-          sessionToken: data.sessionToken,
-          refreshToken: data.refreshToken,
-        };
-        try {
-          const currentTokenUser = jwtDecode(token.sessionToken);
-          dispatch(login({ user: currentTokenUser, token }));
-          navigate('/product');
-        } catch (decodeError) {
-          console.error('Token decoding failed:', decodeError);
-          toast.error('Invalid token received. Please try logging in manually.');
-          navigate('/login');
+      registerMutation.mutate(values, {
+        onSuccess: (response) => {
+          const { data, error } = response;
+          if (data) {
+            toast.success('Registration successful! Welcome to AtDrive Store.');
+            const token = {
+              sessionToken: data.sessionToken,
+              refreshToken: data.refreshToken,
+            };
+            try {
+              const currentTokenUser = jwtDecode(token.sessionToken);
+              dispatch(login({ user: currentTokenUser, token }));
+              navigate('/product');
+            } catch (decodeError) {
+              console.error('Token decoding failed:', decodeError);
+              toast.error('Invalid token received. Please try logging in manually.');
+              navigate('/login');
+            }
+          } else if (error) {
+            if (typeof error === 'object' && !error.message) {
+              setErrors(error);
+            } else {
+              toast.error(error.message || 'Registration failed');
+            }
+          }
+        },
+        onError: (err) => {
+          console.error('Registration error:', err);
+          toast.error('Registration failed. Please try again.');
         }
-      } else if (error) {
-        if (typeof error === 'object' && !error.message) {
-          setErrors(error);
-        } else {
-          toast.error(error.message || 'Registration failed');
-        }
-      }
+      });
     },
   });
 
@@ -226,7 +235,7 @@ export default function Register() {
             variant='contained'
             size='large'
             type="submit"
-            disabled={formik.isSubmitting}
+            disabled={registerMutation.isPending}
             sx={{
               py: 2,
               fontSize: '1rem',
@@ -242,7 +251,7 @@ export default function Register() {
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
           >
-            {formik.isSubmitting ? 'Creating Account...' : 'Get Started Now'}
+            {registerMutation.isPending ? 'Creating Account...' : 'Get Started Now'}
           </Button>
         </Box>
 
